@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<form action="." method="post" class="form" id="form_1">
+  {% csrf_token %}
+  {{ form.as_p }}
+    <button type="submit" class="btn btn-primary" value="Create">
+      Create-by-FormView
+    </button>
+</form>
+    <button id="postBtn" class="btn btn-primary">Create-by-Ajax</button>
+	
+{% endblock %}
+
+{% block script %}
+<script>
+$(document).ready(function(){
+	$("#postBtn").click(function(){
+	var form = $("form").serializeArray();
+		$.post('{% url 'author-create' %}', form, function(data, status){
+			alert("Data: " + data + "\nStatus: " + status + "\n注册成功！");
+		})
+	});
+});
+</script>
+{% endblock %}

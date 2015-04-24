@@ -99,3 +99,5 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+.svn/pristine/09/092306218613dbb3e1b529ac20d7829dbb6129d7.svn-base
+.svn/format

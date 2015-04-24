@@ -1,0 +1,149 @@
+#coding:utf-8
+from django.shortcuts import render
+from django.core.urlresolvers import reverse, reverse_lazy
+from django.http import HttpResponse
+from django.template import RequestContext
+from django.views.decorators.csrf import csrf_exempt
+import json
+# Create your views here.
+"""========================================="""
+from django.views.generic import ListView
+from django.views.generic import DetailView
+"""========================================="""
+from .models import Publisher, Book, Author
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
+class PublisherList(ListView):
+    model = Publisher
+    context_object_name = 'publisher_list'
+
+class BookList(ListView):
+    
+    queryset = Book.objects.order_by('-publication_date')
+    context_object_name = 'book_list'
+    
+class AuthorList(ListView):
+    model = Author
+    context_object_name = 'author_list'
+    
+class PublisherDetail(DetailView):
+    model = Publisher
+    
+    def get_context_data(self, **kwargs):
+        context = super(PublisherDetail, self).get_context_data(**kwargs)
+        context['book_list'] = Book.objects.all()
+        return context
+
+class PublisherBookList(ListView):
+    context_object_name = 'book_list'
+    template_name = 'books/books_by_publisher.html'
+
+    def get_queryset(self):
+        self.publisher = get_object_or_404(Publisher, name=self.args[0])
+        return Book.objects.filter(publisher=self.publisher)
+    
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get a context
+        context = super(PublisherBookList, self).get_context_data(**kwargs)
+        # Add in the publisher
+        context['publisher'] = self.publisher
+        return context
+    
+class AuthorDetailView(DetailView):
+    queryset = Author.objects.all()
+    context_object_name = 'author_detail'
+    
+    def get_object(self):
+        author = super(AuthorDetailView, self).get_object()
+        author.last_accessed = timezone.now()
+        author.save()
+        return author
+    
+    def get_context_data(self, **kwargs):
+        context = super(AuthorDetailView, self).get_context_data(**kwargs)
+        queryset = self.object.book_set.all()
+        """
+        self.object.book_set.all()
+        
+        yuan-获得这个作者的所有书(书ManyToMany作者)
+        """
+        context['book_list'] = queryset
+        return context
+    
+    
+"""
+Form handling with class-based views
+"""
+"""========================================="""
+from django.views.generic.edit import FormView
+from django.views.generic.edit import CreateView
+from django.views.generic.edit import UpdateView
+from django.views.generic.edit import DeleteView
+"""========================================="""
+from .forms import ContactForm
+
+class ContactView(FormView):
+    template_name = 'contact.html'
+    form_class = ContactForm
+    success_url = '/thanks/'
+    
+    def form_valid(self, form):
+        form.send_email()
+        return super(ContactView, self).form_valid(form)
+
+class AuthorUpdate(UpdateView):
+    model = Author
+    fields = ['salutation']
+
+class AuthorDelete(DeleteView):
+    model = Author
+    success_url = reverse_lazy('author-list')
+    
+"""========================================
+混合类AjaxableResponseMixin，为了让views同时支持ajax提交表单
+==========================================="""
+class AjaxableResponseMixin(object):
+    """
+    Mixin to add AJAX support to a form.
+    Must be used with an object-based FormView (e.g. CreateView)
+    """
+    def render_to_json_response(self, context, **response_kwargs):
+        data = json.dumps(context)
+        response_kwargs['content_type'] = 'application/json'
+        return HttpResponse(data, **response_kwargs)
+    
+    def form_invalid(self, form):
+        print "表单不合法"
+        response = super(AjaxableResponseMixin, self).form_invalid(form)
+        # 如果他是ajax请求且验证未通过
+        if self.request.is_ajax():
+            return self.render_to_json_response(form.error, status=400)
+        # 如果他不是ajax请求而且它表单验证没通过
+        else:
+            return self.render_to_response(RequestContext(self.request, {'form': form}))
+            #return HttpResponse("form is invalid.. this is just an HttpResponse object")
+  
+    def form_valid(self, form):
+        # We make sure to call the parent's form_valid() method because
+        # it might do some processing (in the case of CreateView, it will
+        # call form.save() for example).
+        print "表单合法"
+        response = super(AjaxableResponseMixin, self).form_valid(form)
+        if self.request.is_ajax():
+            data = {
+                    # 返回给前端的（json格式）
+                    'pk': self.object.pk,
+            }
+            return self.render_to_json_response(data)
+        else:
+            return response
+    
+class AuthorCreate(AjaxableResponseMixin, CreateView):
+    model = Author
+    fields = ['name', 'salutation']
+    
+    # 重载dispatch为每个instence添加例外，不进行跨站攻击防护
+    @csrf_exempt
+    def dispatch(self, *args, **kwargs):
+        return super(AuthorCreate, self).dispatch(*args, **kwargs)
