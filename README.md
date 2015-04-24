@@ -1,6 +1,7 @@
 """========================================
-#混合类AjaxableResponseMixin，为了让views同时支持ajax提交表单
+###混合类AjaxableResponseMixin，为了让views同时支持ajax提交表单
 ==========================================="""
+```python
 class AjaxableResponseMixin(object):
     """
     Mixin to add AJAX support to a form.
@@ -45,3 +46,4 @@ class AuthorCreate(AjaxableResponseMixin, CreateView):
     #@csrf_exempt
     def dispatch(self, *args, **kwargs):
         return super(AuthorCreate, self).dispatch(*args, **kwargs)
+```
