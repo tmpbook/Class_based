@@ -118,7 +118,7 @@ class AjaxableResponseMixin(object):
         response = super(AjaxableResponseMixin, self).form_invalid(form)
         # 如果他是ajax请求且验证未通过
         if self.request.is_ajax():
-            return self.render_to_json_response(form.error, status=400)
+            return self.render_to_json_response(form.errors, status=400)
         # 如果他不是ajax请求而且它表单验证没通过
         else:
             return self.render_to_response(RequestContext(self.request, {'form': form}))
